@@ -1,0 +1,69 @@
+#!/usr/bin/env bash_unit
+
+setup() {
+  setup_backup_script
+
+  export S3_FAKE_DIR="$(mktemp -d)"
+  FAKE_S3_URL=s3:__system-under-test_where-we-put-the-backups_
+
+  fake download cat fixtures/my_database.dump
+
+  fake s3_push _push
+}
+
+setup_backup_script() {
+  export GPG_HOME_DIR="$(mktemp -d)"
+  export S3_URL=s3://system-under-test/where-we-put-the-backups/
+  export PGP_KEYS="$(cat fixtures/toto.public_key.asc fixtures/titi.public_key.asc)"
+}
+
+teardown() {
+  rm -rf ${S3_FAKE_DIR}
+  rm -rf ${GPG_HOME_DIR}
+}
+
+test_can_make_a_backup() {
+  ../backup my_database addon_bdc1e3d1-190e-4a5e-a694-e8da77c1a92e
+
+  local expected_archive_path="${S3_FAKE_DIR}/${FAKE_S3_URL}my_database.pgp"
+
+  assert "test -f ${expected_archive_path}" "pgp encrypted archive not created: ${expected_archive_path}"
+}
+
+test_toto_can_decypher_backup() {
+  ../backup my_database addon_bdc1e3d1-190e-4a5e-a694-e8da77c1a92e
+
+  local expected_archive_path="${S3_FAKE_DIR}/${FAKE_S3_URL}my_database.pgp"
+  
+  import_private_key toto
+
+  assert "gpg --homedir ${GPG_HOME_DIR} --decrypt ${expected_archive_path}" "pgp encrypted archive not created: ${expected_archive_path}"
+}
+
+test_titi_can_decypher_backup() {
+  ../backup my_database addon_bdc1e3d1-190e-4a5e-a694-e8da77c1a92e
+
+  local expected_archive_path="${S3_FAKE_DIR}/${FAKE_S3_URL}my_database.pgp"
+
+  
+  import_private_key titi
+
+  assert "gpg --homedir ${GPG_HOME_DIR} --decrypt ${expected_archive_path}" "pgp encrypted archive not created: ${expected_archive_path}"
+}
+
+test_reject_invalid_backup() {
+  fake download echo invalide
+  assert_fail "../backup my_database addon_bdc1e3d1-190e-4a5e-a694-e8da77c1a92e"
+}
+
+_push() {
+  cat > "${S3_FAKE_DIR}/$(echo ${FAKE_PARAMS[0]} | tr / _)"
+} 
+export -f _push
+
+import_private_key() {
+  local admin="$1"
+  gpg --homedir "${GPG_HOME_DIR}" --import fixtures/${admin}.private_key.asc 2>/dev/null
+}
+
+# vim: syntax=sh
