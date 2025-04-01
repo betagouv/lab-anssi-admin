@@ -36,7 +36,7 @@ test_can_backup_several_databases() {
 }
 
 test_toto_can_decypher_backup() {
-  ../backup my_database addon_bdc1e3d1-190e-4a5e-a694-e8da77c1a92e
+  ../backup
 
   local expected_archive_path="${S3_FAKE_DIR}/${FAKE_S3_URL}my_database.pgp"
   
@@ -46,7 +46,7 @@ test_toto_can_decypher_backup() {
 }
 
 test_titi_can_decypher_backup() {
-  ../backup my_database addon_bdc1e3d1-190e-4a5e-a694-e8da77c1a92e
+  ../backup
 
   local expected_archive_path="${S3_FAKE_DIR}/${FAKE_S3_URL}my_database.pgp"
 
@@ -58,7 +58,17 @@ test_titi_can_decypher_backup() {
 
 test_reject_invalid_backup() {
   fake download echo invalide
-  assert_fail "../backup my_database addon_bdc1e3d1-190e-4a5e-a694-e8da77c1a92e"
+  assert_fail "../backup"
+}
+
+test_fails_when_no_backup_to_perform() {
+  for var in $(set | grep '^ADDON_ID')
+  do
+    var_name="$(echo $var | cut -d= -f1)"
+    unset "${var_name}"
+  done
+
+  assert_fail ../backup
 }
 
 _push() {

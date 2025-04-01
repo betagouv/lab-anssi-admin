@@ -48,6 +48,16 @@ backup_and_push() {
   cat "$tmp_dir/$db_name" | gpg_encrypt | s3_push "${S3_URL}${db_name}.pgp"
 }
 
+usage() {
+  echo "$@" >&2
+  exit 1
+}
+
+if ! set | grep '^ADDON_ID_' >/dev/null
+then
+  usage 'missing ADDON_ID, nothing to backup'
+fi
+
 import_pgp_keys
 
 for var in $(set | grep '^ADDON_ID_'); do
