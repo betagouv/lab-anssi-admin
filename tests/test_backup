@@ -15,6 +15,8 @@ setup_backup_script() {
   export GPG_HOME_DIR="$(mktemp -d)"
   export S3_URL=s3://system-under-test/where-we-put-the-backups/
   export PGP_KEYS="$(cat fixtures/toto.public_key.asc fixtures/titi.public_key.asc)"
+  export ADDON_ID_my_database=addon_bdc1e3d1-190e-4a5e-a694-e8da77c1a92e
+  export ADDON_ID_my_other_database=addon_bdc2e4d2-190e-4a6e-a695-e9da79c2a93e
 }
 
 teardown() {
@@ -22,12 +24,15 @@ teardown() {
   rm -rf ${GPG_HOME_DIR}
 }
 
-test_can_make_a_backup() {
-  ../backup my_database addon_bdc1e3d1-190e-4a5e-a694-e8da77c1a92e
+test_can_backup_several_databases() {
 
-  local expected_archive_path="${S3_FAKE_DIR}/${FAKE_S3_URL}my_database.pgp"
+  ../backup
 
-  assert "test -f ${expected_archive_path}" "pgp encrypted archive not created: ${expected_archive_path}"
+  local s3_destination="${S3_FAKE_DIR}/${FAKE_S3_URL}"
+
+  assert "test -f ${s3_destination}my_database.pgp" "$(ls ${S3_FAKE_DIR})"
+  assert "test -f ${s3_destination}my_other_database.pgp"
+
 }
 
 test_toto_can_decypher_backup() {
