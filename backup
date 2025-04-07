@@ -19,6 +19,7 @@ gpg_encrypt() {
     recipients="$recipients --recipient $key"
   done
 
+  # shellcheck disable=SC2086
   gpg --homedir "${GPG_HOME_DIR}" --trust-model always --encrypt $recipients
 }
 
@@ -29,7 +30,9 @@ check_dump_is_healthy() {
 
 declare -F download > /dev/null || download() {
   local addon="$1"
-  local backup="$(clever database backups "$addon" | tail -n1 | cut -d' ' -f1)"
+  local backup
+
+  backup="$(clever database backups "$addon" | tail -n1 | cut -d' ' -f1)"
   echo clever database backups download "$addon" "$backup" >&2
   clever database backups download "$addon" "$backup"
 }
@@ -45,7 +48,7 @@ backup_and_push() {
 
   download "$addon_id" > "$tmp_dir/$db_name"
   check_dump_is_healthy "$tmp_dir/$db_name"
-  cat "$tmp_dir/$db_name" | gpg_encrypt | s3_push "${S3_URL}${db_name}.pgp"
+  < "$tmp_dir/$db_name" gpg_encrypt | s3_push "${S3_URL}${db_name}.pgp"
 }
 
 usage() {
@@ -61,7 +64,8 @@ fi
 import_pgp_keys
 
 for var in $(set | grep '^ADDON_ID_'); do
-  addon_name="$(echo $var | sed -e 's:^ADDON_ID_\(.*\)=.*:\1:')"
+  # shellcheck disable=SC2001
+  addon_name="$(echo "$var" | sed -e 's:^ADDON_ID_\(.*\)=.*:\1:')"
   addon_value="$(echo "$var" | cut -d'=' -f2)"
   backup_and_push "$addon_name" "$addon_value"
 done
