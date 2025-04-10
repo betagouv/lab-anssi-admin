@@ -39,7 +39,7 @@ declare -F download > /dev/null || download() {
 
 declare -F s3_push > /dev/null || s3_push() {
   local destination="$1"
-  s3cmd --host-bucket="${S3_HOST_BUCKET}" put - "${destination}"
+  s3cmd --quiet --host-bucket="${S3_HOST_BUCKET}" put - "${destination}"
 }
 
 backup_and_push() {
