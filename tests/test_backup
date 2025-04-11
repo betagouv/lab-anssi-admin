@@ -14,6 +14,15 @@ setup() {
 }
 
 setup_backup_script() {
+
+  export PGP_KEYS=mandatory
+  export S3_URL=mandatory
+  export S3_HOST_BUCKET=mandatory
+  export AWS_ACCESS_KEY_ID=mandatory
+  export AWS_SECRET_ACCESS_KEY=mandatory
+  export CLEVER_SECRET=mandatory
+  export CLEVER_TOKEN=mandatory
+
   GPG_HOME_DIR="$(mktemp -d)" ; export GPG_HOME_DIR
   export S3_URL=s3://system-under-test/where-we-put-the-backups/
   PGP_KEYS="$(cat fixtures/toto.public_key.asc fixtures/titi.public_key.asc)" ; export PGP_KEYS

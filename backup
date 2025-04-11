@@ -54,27 +54,25 @@ backup_and_push() {
 usage() {
   echo "$0" >&2
   echo "Error: $@" >&2
-  cat >&2 <<EOF
+  echo >&2
+  echo "Launch a backup of our databases" >&2
+  echo "The following environment variables must be defined:" >&2
+  echo >&2
+  echo "PGP_KEYS: The public keys for which we must encrypt the backup" >&2
+  echo >&2
+  echo "ADDON_ID_<db_name>=<addon_id> : the name of the db to backup and its addon id" >&2
+  echo "  An ADDON_ID_<db_name> must be defined for each addon to backup" >&2
+  echo >&2
+  echo "AWS_ACCESS_KEY_ID: authentication information for target S3 bucket" >&2
+  echo "AWS_SECRET_ACCESS_KEY: authentication information for target S3 bucket" >&2
+  echo >&2
+  echo "S3_URL: an s3:// url for the target bucket to where to store the backup" >&2
+  echo "S3_HOST_BUCKET: configuration of target S3 system" >&2
+  echo "  may look like this: '%(bucket)s.cellar-c2.services.clever-cloud.com'" >&2
+  echo >&2
+  echo "CLEVER_SECRET: authentication information to download add-on backup" >&2
+  echo "CLEVER_TOKEN: authentication information to download add-on backup" >&2
 
-Launch a backup of our databases
-The following environment variables must be defined:
-
-PGP_KEYS: The public keys for which we must encrypt the backup
-
-ADDON_ID_<db_name>=<addon_id> : the name of the db to backup and its addon id
-  An ADDON_ID_<db_name> must be defined for each addon to backup
-
-AWS_ACCESS_KEY_ID: authentication information for target S3 bucket
-AWS_SECRET_ACCESS_KEY: authentication information for target S3 bucket
-
-S3_URL: an s3:// url for the target bucket to where to store the backup
-S3_HOST_BUCKET: configuration of target S3 system
-  may look like this: '%(bucket)s.cellar-c2.services.clever-cloud.com'
-
-CLEVER_SECRET: authentication information to download add-on backup
-CLEVER_TOKEN: authentication information to download add-on backup
-
-EOF
   exit 1
 }
 
