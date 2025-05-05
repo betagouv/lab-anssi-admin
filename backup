@@ -33,7 +33,6 @@ declare -F download > /dev/null || download() {
   local backup
 
   backup="$(clever database backups "$addon" | tail -n1 | cut -d' ' -f1)"
-  echo clever database backups download "$addon" "$backup" >&2
   clever database backups download "$addon" "$backup"
 }
 
@@ -46,9 +45,11 @@ backup_and_push() {
   local db_name="$1"
   local addon_id="$2"
 
+  echo -n "Backup of database $db_name ($addon_id)..." >&2
   download "$addon_id" > "$tmp_dir/$db_name"
   check_dump_is_healthy "$tmp_dir/$db_name"
-  < "$tmp_dir/$db_name" gpg_encrypt | s3_push "${S3_URL}${db_name}.pgp"
+  < "$tmp_dir/$db_name" gpg_encrypt | s3_push "s3://${BACKUP_BUCKET_NAME}/backups/${db_name}.pgp"
+  echo "Done" >&2
 }
 
 usage() {
@@ -60,13 +61,20 @@ usage() {
   echo >&2
   echo "PGP_KEYS: The public keys for which we must encrypt the backup" >&2
   echo >&2
-  echo "ADDON_ID_<db_name>=<addon_id> : the name of the db to backup and its addon id" >&2
+  echo "ADDON_ID_<db_name>=<addon_id>: the name of the db to backup and its addon id" >&2
   echo "  An ADDON_ID_<db_name> must be defined for each addon to backup" >&2
+  echo "S3_BUCKETS_TO_BACKUP: list of name of buckets we want to backup" >&2
   echo >&2
-  echo "AWS_ACCESS_KEY_ID: authentication information for target S3 bucket" >&2
-  echo "AWS_SECRET_ACCESS_KEY: authentication information for target S3 bucket" >&2
+  echo "RCLONE_CONFIG_SOURCE_ACCESS_KEY_ID: authentication information for source S3 bucket to backup" >&2
+  echo "RCLONE_CONFIG_SOURCE_SECRET_ACCESS_KEY: authentication information for source S3 bucket to backup" >&2
+  echo "RCLONE_CONFIG_SOURCE_ENDPOINT: endpoint information for source S3 bucket to backup" >&2
   echo >&2
-  echo "S3_URL: an s3:// url for the target bucket to where to store the backup" >&2
+  echo "RCLONE_CONFIG_TARGET_ACCESS_KEY_ID: authentication information for target S3 bucket where to store the backup" >&2
+  echo "RCLONE_CONFIG_TARGET_SECRET_ACCESS_KEY: authentication information for target S3 bucket where to store the backup" >&2
+  echo "RCLONE_CONFIG_TARGET_ENDPOINT: endpoint information for target S3 bucket where to store the backup" >&2
+
+  echo >&2
+  echo "BACKUP_BUCKET_NAME: the name of the target bucket to where to store the backup" >&2
   echo "S3_HOST_BUCKET: configuration of target S3 system" >&2
   echo "  may look like this: '%(bucket)s.cellar-c2.services.clever-cloud.com'" >&2
   echo >&2
@@ -77,12 +85,21 @@ usage() {
 }
 
 [[ -z "${PGP_KEYS+x}"              ]] && usage "You must define PGP_KEYS"
-[[ -z "${S3_URL+x}"                ]] && usage "You must define S3_URL"
+[[ -z "${BACKUP_BUCKET_NAME+x}"    ]] && usage "You must define BACKUP_BUCKET_NAME"
 [[ -z "${S3_HOST_BUCKET+x}"        ]] && usage "You must define S3_HOST_BUCKET"
-[[ -z "${AWS_ACCESS_KEY_ID+x}"     ]] && usage "You must define AWS_ACCESS_KEY_ID"
-[[ -z "${AWS_SECRET_ACCESS_KEY+x}" ]] && usage "You must define AWS_SECRET_ACCESS_KEY"
 [[ -z "${CLEVER_SECRET+x}"         ]] && usage "You must define CLEVER_SECRET"
 [[ -z "${CLEVER_TOKEN+x}"          ]] && usage "You must define CLEVER_TOKEN"
+
+[[ -z "${RCLONE_CONFIG_SOURCE_ACCESS_KEY_ID+x}"     ]] && usage "You must define RCLONE_CONFIG_SOURCE_ACCESS_KEY_ID"
+[[ -z "${RCLONE_CONFIG_SOURCE_SECRET_ACCESS_KEY+x}" ]] && usafe "You must define RCLONE_CONFIG_SOURCE_ACCESS_KEY_ID"
+[[ -z "${RCLONE_CONFIG_SOURCE_ENDPOINT+x}"          ]] && usafe "You must define RCLONE_CONFIG_SOURCE_ENDPOINT"
+[[ -z "${RCLONE_CONFIG_TARGET_ACCESS_KEY_ID+x}"     ]] && usage "You must define RCLONE_CONFIG_TARGET_ACCESS_KEY_ID"
+[[ -z "${RCLONE_CONFIG_TARGET_SECRET_ACCESS_KEY+x}" ]] && usafe "You must define RCLONE_CONFIG_TARGET_ACCESS_KEY_ID"
+[[ -z "${RCLONE_CONFIG_TARGET_ENDPOINT+x}"          ]] && usafe "You must define RCLONE_CONFIG_TARGET_ENDPOINT"
+[[ -z "${S3_BUCKETS_TO_BACKUP+x}"                   ]] && usafe "You must define S3_BUCKETS_TO_BACKUP"
+
+export AWS_ACCESS_KEY_ID="$RCLONE_CONFIG_TARGET_ACCESS_KEY_ID"
+export AWS_SECRET_ACCESS_KEY="$RCLONE_CONFIG_TARGET_SECRET_ACCESS_KEY"
 
 if ! set | grep '^ADDON_ID_' >/dev/null
 then
@@ -99,3 +116,10 @@ for var in $(set | grep '^ADDON_ID_'); do
 done
 
 rm -rf "$tmp_dir"
+
+for bucket in ${S3_BUCKETS_TO_BACKUP}
+do
+  echo "Backup of S3 bucket $bucket" >&2
+  rclone sync "SOURCE:${bucket}" "TARGET:pilot-eagle-tennis/backups/S3/${bucket}" --progress
+done
+
