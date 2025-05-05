@@ -4,30 +4,35 @@ setup() {
   setup_backup_script
 
   S3_FAKE_DIR="$(mktemp -d)" ; export S3_FAKE_DIR
-  FAKE_S3_URL=s3:__system-under-test_where-we-put-the-backups_
+  FAKE_S3_URL=s3:__${BACKUP_BUCKET_NAME}_backups_
 
   fake download cat fixtures/my_database.dump
   # We fake pg_restore because of issues with pg versions between CI and local dev
   fake pg_restore echo ok
 
   fake s3_push _push
+  fake rclone echo
 }
 
 setup_backup_script() {
 
-  export PGP_KEYS=mandatory
-  export S3_URL=mandatory
-  export S3_HOST_BUCKET=mandatory
-  export AWS_ACCESS_KEY_ID=mandatory
-  export AWS_SECRET_ACCESS_KEY=mandatory
   export CLEVER_SECRET=mandatory
   export CLEVER_TOKEN=mandatory
+  export RCLONE_CONFIG_SOURCE_ACCESS_KEY_ID=mandatory
+  export RCLONE_CONFIG_SOURCE_SECRET_ACCESS_KEY=mandatory
+  export RCLONE_CONFIG_SOURCE_ENDPOINT=mandatory
+  export RCLONE_CONFIG_TARGET_ACCESS_KEY_ID=mandatory
+  export RCLONE_CONFIG_TARGET_SECRET_ACCESS_KEY=mandatory
+  export RCLONE_CONFIG_TARGET_ENDPOINT=mandatory
+  export S3_BUCKETS_TO_BACKUP=mandatory
+  export S3_HOST_BUCKET=mandatory
 
   GPG_HOME_DIR="$(mktemp -d)" ; export GPG_HOME_DIR
-  export S3_URL=s3://system-under-test/where-we-put-the-backups/
+
   PGP_KEYS="$(cat fixtures/toto.public_key.asc fixtures/titi.public_key.asc)" ; export PGP_KEYS
   export ADDON_ID_my_database=addon_bdc1e3d1-190e-4a5e-a694-e8da77c1a92e
   export ADDON_ID_my_other_database=addon_bdc2e4d2-190e-4a6e-a695-e9da79c2a93e
+  export BACKUP_BUCKET_NAME=fake_bucket
 }
 
 teardown() {
@@ -37,17 +42,16 @@ teardown() {
 
 test_can_backup_several_databases() {
 
-  ../backup
+  assert ../backup
 
   local s3_destination="${S3_FAKE_DIR}/${FAKE_S3_URL}"
 
-  assert "test -f ${s3_destination}my_database.pgp"
+  assert "test -f ${s3_destination}my_database.pgp" "$(ls "${s3_destination}"*)"
   assert "test -f ${s3_destination}my_other_database.pgp"
-
 }
 
 test_toto_can_decypher_backup() {
-  ../backup
+  assert ../backup
 
   local expected_archive_path="${S3_FAKE_DIR}/${FAKE_S3_URL}my_database.pgp"
   
@@ -57,7 +61,7 @@ test_toto_can_decypher_backup() {
 }
 
 test_titi_can_decypher_backup() {
-  ../backup
+  assert ../backup
 
   local expected_archive_path="${S3_FAKE_DIR}/${FAKE_S3_URL}my_database.pgp"
 
@@ -83,6 +87,7 @@ test_fails_when_no_backup_to_perform() {
 }
 
 _push() {
+  echo cat \> "${S3_FAKE_DIR}/$(echo "${FAKE_PARAMS[0]}" | tr / _)"
   cat > "${S3_FAKE_DIR}/$(echo "${FAKE_PARAMS[0]}" | tr / _)"
 } 
 export -f _push
