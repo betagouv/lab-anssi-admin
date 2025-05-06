@@ -118,7 +118,8 @@ validate_source_buckets_configuration() {
 [[ -z "${RCLONE_CONFIG_TARGET_SECRET_ACCESS_KEY+x}" ]] && usafe "You must define RCLONE_CONFIG_TARGET_ACCESS_KEY_ID"
 [[ -z "${RCLONE_CONFIG_TARGET_ENDPOINT+x}"          ]] && usafe "You must define RCLONE_CONFIG_TARGET_ENDPOINT"
 [[ -z "${S3_BUCKETS_TO_BACKUP+x}"                   ]] && usafe "You must define S3_BUCKETS_TO_BACKUP"
-validate_source_buckets_configuration "$S3_BUCKETS_TO_BACKUP"
+# shellcheck disable=SC2086
+validate_source_buckets_configuration $S3_BUCKETS_TO_BACKUP
 
 export AWS_ACCESS_KEY_ID="$RCLONE_CONFIG_TARGET_ACCESS_KEY_ID"
 export AWS_SECRET_ACCESS_KEY="$RCLONE_CONFIG_TARGET_SECRET_ACCESS_KEY"
