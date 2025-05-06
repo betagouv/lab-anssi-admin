@@ -56,18 +56,21 @@ usage() {
   echo "$0" >&2
   echo Error: "$@" >&2
   echo >&2
-  echo "Launch a backup of our databases" >&2
+  echo "Launch a backup of our databases and S3 buckets" >&2
   echo "The following environment variables must be defined:" >&2
   echo >&2
   echo "PGP_KEYS: The public keys for which we must encrypt the backup" >&2
   echo >&2
   echo "ADDON_ID_<db_name>=<addon_id>: the name of the db to backup and its addon id" >&2
   echo "  An ADDON_ID_<db_name> must be defined for each addon to backup" >&2
-  echo "S3_BUCKETS_TO_BACKUP: list of name of buckets we want to backup" >&2
   echo >&2
-  echo "RCLONE_CONFIG_SOURCE_ACCESS_KEY_ID: authentication information for source S3 bucket to backup" >&2
-  echo "RCLONE_CONFIG_SOURCE_SECRET_ACCESS_KEY: authentication information for source S3 bucket to backup" >&2
-  echo "RCLONE_CONFIG_SOURCE_ENDPOINT: endpoint information for source S3 bucket to backup" >&2
+  echo "S3_BUCKETS_TO_BACKUP: list of name of buckets we want to backup" >&2
+  echo "  For each backup in this list, you must define their endpoint and credentials." >&2
+  echo "  To do so, specify three variables of the following form. If the name of the" >&2
+  echo "  bucket contains - (dashes) replace them with _ (underscore):" >&2
+  echo "  S3_<bucket name>_endpoint: endpoint information for source S3 bucket to backup" >&2
+  echo "  S3_<bucket name>_access_key_id: authentication information for source S3 bucket to backup" >&2
+  echo "  S3_<bucket name>_secret_access_key: authentication information for source S3 bucket to backup" >&2
   echo >&2
   echo "RCLONE_CONFIG_TARGET_ACCESS_KEY_ID: authentication information for target S3 bucket where to store the backup" >&2
   echo "RCLONE_CONFIG_TARGET_SECRET_ACCESS_KEY: authentication information for target S3 bucket where to store the backup" >&2
@@ -84,19 +87,39 @@ usage() {
   exit 1
 }
 
+bucket_configuration() {
+  local bucket="$1"
+  bucket="$(echo "$bucket" | tr - _)"
+
+  local source_endpoint="S3_${bucket}_endpoint"
+  local source_access_key_id="S3_${bucket}_access_key_id"
+  local source_secret_access_key="S3_${bucket}_secret_access_key"
+  [[ -z "${!source_endpoint+x}"          ]] && usage "You must define ${source_endpoint}"
+  [[ -z "${!source_access_key_id+x}"     ]] && usage "You must define ${source_access_key_id}"
+  [[ -z "${!source_secret_access_key+x}" ]] && usage "You must define ${source_secret_access_key}"
+
+  echo "${!source_endpoint}" "${!source_access_key_id}" "${!source_secret_access_key}"
+ }
+
+validate_source_buckets_configuration() {
+  for bucket in "$@"
+  do
+    bucket_configuration "$bucket" >/dev/null
+  done
+echo ok
+}
+
 [[ -z "${PGP_KEYS+x}"              ]] && usage "You must define PGP_KEYS"
 [[ -z "${BACKUP_BUCKET_NAME+x}"    ]] && usage "You must define BACKUP_BUCKET_NAME"
 [[ -z "${S3_HOST_BUCKET+x}"        ]] && usage "You must define S3_HOST_BUCKET"
 [[ -z "${CLEVER_SECRET+x}"         ]] && usage "You must define CLEVER_SECRET"
 [[ -z "${CLEVER_TOKEN+x}"          ]] && usage "You must define CLEVER_TOKEN"
 
-[[ -z "${RCLONE_CONFIG_SOURCE_ACCESS_KEY_ID+x}"     ]] && usage "You must define RCLONE_CONFIG_SOURCE_ACCESS_KEY_ID"
-[[ -z "${RCLONE_CONFIG_SOURCE_SECRET_ACCESS_KEY+x}" ]] && usafe "You must define RCLONE_CONFIG_SOURCE_ACCESS_KEY_ID"
-[[ -z "${RCLONE_CONFIG_SOURCE_ENDPOINT+x}"          ]] && usafe "You must define RCLONE_CONFIG_SOURCE_ENDPOINT"
 [[ -z "${RCLONE_CONFIG_TARGET_ACCESS_KEY_ID+x}"     ]] && usage "You must define RCLONE_CONFIG_TARGET_ACCESS_KEY_ID"
 [[ -z "${RCLONE_CONFIG_TARGET_SECRET_ACCESS_KEY+x}" ]] && usafe "You must define RCLONE_CONFIG_TARGET_ACCESS_KEY_ID"
 [[ -z "${RCLONE_CONFIG_TARGET_ENDPOINT+x}"          ]] && usafe "You must define RCLONE_CONFIG_TARGET_ENDPOINT"
 [[ -z "${S3_BUCKETS_TO_BACKUP+x}"                   ]] && usafe "You must define S3_BUCKETS_TO_BACKUP"
+validate_source_buckets_configuration "$S3_BUCKETS_TO_BACKUP"
 
 export AWS_ACCESS_KEY_ID="$RCLONE_CONFIG_TARGET_ACCESS_KEY_ID"
 export AWS_SECRET_ACCESS_KEY="$RCLONE_CONFIG_TARGET_SECRET_ACCESS_KEY"
@@ -117,9 +140,18 @@ done
 
 rm -rf "$tmp_dir"
 
+rclone_sync_s3() {
+  local bucket="$1" ; shift
+  export RCLONE_CONFIG_SOURCE_ENDPOINT="$1"
+  export RCLONE_CONFIG_SOURCE_ACCESS_KEY_ID="$2"
+  export RCLONE_CONFIG_SOURCE_SECRET_ACCESS_KEY="$3"
+
+  rclone sync "SOURCE:${bucket}" "TARGET:${BACKUP_BUCKET_NAME}/backups/S3/${bucket}" --progress
+}
+
 for bucket in ${S3_BUCKETS_TO_BACKUP}
 do
   echo "Backup of S3 bucket $bucket" >&2
-  rclone sync "SOURCE:${bucket}" "TARGET:pilot-eagle-tennis/backups/S3/${bucket}" --progress
+  # shellcheck disable=SC2046
+  rclone_sync_s3 "$bucket" $(bucket_configuration "$bucket")
 done
-
