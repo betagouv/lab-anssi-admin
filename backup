@@ -106,7 +106,6 @@ validate_source_buckets_configuration() {
   do
     bucket_configuration "$bucket" >/dev/null
   done
-echo ok
 }
 
 [[ -z "${PGP_KEYS+x}"              ]] && usage "You must define PGP_KEYS"
