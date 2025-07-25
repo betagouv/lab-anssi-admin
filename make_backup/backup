@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+tmp_dir="$(mktemp -d)"
+GPG_HOME_DIR="${GPG_HOME_DIR:-$(mktemp -d)}"
+
+import_pgp_keys() {
+  gpg --homedir "${GPG_HOME_DIR}" --import <(echo "$PGP_KEYS") 2>/dev/null
+}
+
+list_keys() {
+  gpg --homedir "${GPG_HOME_DIR}" --list-keys --with-colons | awk -F: '/^pub:/ {print $5}'
+}
+
+dump_encrypted_backup_key() {
+  local recipients=""
+  local backup_key="$1"
+
+  for key in $(list_keys)
+  do
+    recipients="$recipients --recipient $key"
+  done
+
+  # shellcheck disable=SC2086
+  echo "$backup_key" | gpg --homedir "${GPG_HOME_DIR}" --trust-model always --encrypt $recipients --armor
+}
+
+gpg_encrypt() {
+  local backup_key="$1"
+  
+  # shellcheck disable=SC2086
+  gpg --homedir "${GPG_HOME_DIR}" --symmetric --batch --passphrase "${backup_key}" -
+}
+
+declare -F s3_push > /dev/null || s3_push() {
+  local destination="$1"
+  s3cmd --quiet --host-bucket="${S3_HOST_BUCKET}" put - "${destination}"
+}
+
+
+generate_symmetric_key() {
+  openssl rand -base64 32
+}
+
+declare -F pgdump > /dev/null || pgdump() {
+  local addon_id="$1"
+
+  echo "Dumping database for addon ID: $addon_id" >&2
+
+  while read -r line; do
+    eval "$line"
+  done < <(clever addon env "$addon_id" | grep -E '^POSTGRESQL_ADDON_')
+# POSTGRESQL_ADDON_DB="database_name"
+# POSTGRESQL_ADDON_HOST="database_host"
+# POSTGRESQL_ADDON_PASSWORD="database_password"
+# POSTGRESQL_ADDON_PORT="database_port"
+# POSTGRESQL_ADDON_USER="database_user"
+
+  PGPASSWORD="$POSTGRESQL_ADDON_PASSWORD" pg_dump \
+  -U "$POSTGRESQL_ADDON_USER" \
+  -h "$POSTGRESQL_ADDON_HOST" \
+  -p "$POSTGRESQL_ADDON_PORT" \
+  -F c -b -v --no-owner --no-privileges --no-comments \
+  "$POSTGRESQL_ADDON_DB"
+}
+
+backup_and_push() {
+  local db_name="$1"
+  local addon_id="$2"
+  local backup_key="$3"
+
+  echo -n "Backup of database $db_name ($addon_id)..." >&2
+  pgdump "$addon_id" > "$tmp_dir/$db_name" #TODO
+  < "$tmp_dir/$db_name" gpg_encrypt "$backup_key" | s3_push "s3://${BACKUP_BUCKET_NAME}/backups/${db_name}.pgp"
+  echo "Done" >&2
+}
+
+usage() {
+  echo "$0" >&2
+  echo Error: "$@" >&2
+  echo >&2
+  echo "Launch a backup of our databases" >&2
+  echo "The backup will be encrypted and uploaded to S3" >&2
+  echo "The key to decrypt the backup will be encrypted with the public keys provided in PGP_KEYS" >&2
+  echo >&2
+  echo "The following environment variables must be defined:" >&2
+  echo >&2
+  echo "PGP_KEYS: The public keys for which we must encrypt the backup" >&2
+  echo >&2
+  echo "ADDON_ID_<db_name>=<addon_id>: the name of the db to backup and its addon id" >&2
+  echo "  An ADDON_ID_<db_name> must be defined for each addon to backup" >&2
+  echo >&2
+  echo "BACKUP_BUCKET_NAME: the name of the target bucket to where to store the backup" >&2
+  echo "S3_HOST_BUCKET: configuration of target S3 system" >&2
+  echo "  may look like this: '%(bucket)s.cellar-c2.services.clever-cloud.com'" >&2
+  echo "AWS_ACCESS_KEY_ID: authentication information for target S3 bucket where to store the backup" >&2
+  echo "AWS_SECRET_ACCESS_KEY: authentication information for target S3 bucket where to store the backup" >&2
+  echo >&2
+  echo "CLEVER_SECRET: authentication information to fetch add-on connection data" >&2
+  echo "CLEVER_TOKEN: authentication information to fetch add-on connection data" >&2
+
+  exit 1
+}
+
+[[ -z "${PGP_KEYS+x}"              ]] && usage "You must define PGP_KEYS"
+[[ -z "${BACKUP_BUCKET_NAME+x}"    ]] && usage "You must define BACKUP_BUCKET_NAME"
+[[ -z "${S3_HOST_BUCKET+x}"        ]] && usage "You must define S3_HOST_BUCKET"
+[[ -z "${CLEVER_SECRET+x}"         ]] && usage "You must define CLEVER_SECRET"
+[[ -z "${CLEVER_TOKEN+x}"          ]] && usage "You must define CLEVER_TOKEN"
+
+if ! set | grep '^ADDON_ID_' >/dev/null
+then
+  usage 'missing ADDON_ID, nothing to backup'
+fi
+
+import_pgp_keys
+
+backup_key="$(generate_symmetric_key)"
+
+for var in $(set | grep '^ADDON_ID_'); do
+  # shellcheck disable=SC2001
+  addon_name="$(echo "$var" | sed -e 's:^ADDON_ID_\(.*\)=.*:\1:')"
+  addon_value="$(echo "$var" | cut -d'=' -f2)"
+  backup_and_push "$addon_name" "$addon_value" "$backup_key"
+done
+
+dump_encrypted_backup_key "$backup_key"
+
+rm -rf "$tmp_dir"
