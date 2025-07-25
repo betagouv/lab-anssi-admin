@@ -1,0 +1,28 @@
+name: export_backup CI
+permissions:
+  contents: read
+on:
+  push:
+    branches: [main]
+    paths:
+      - "export_backup/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "export_backup/**"
+
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+      - name: Install bash_unit
+        run: |
+          curl -s https://raw.githubusercontent.com/pgrange/bash_unit/master/install.sh | bash
+      - name: Unit testing with bash_unit
+        run: |
+          cd export_backup
+          FORCE_COLOR=true ../bash_unit tests/test*

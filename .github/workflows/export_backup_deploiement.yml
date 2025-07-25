@@ -1,10 +1,13 @@
-name: Déploiement
+name: export_backup Déploiement
 run-name: Déploiement du commit "${{ github.event.head_commit.message }}"
 permissions: {}
 
 on:
   push:
     branches: [main]
+    paths:
+      - "export_backup/**"
+
   workflow_dispatch: # Pour activer le déclenchement manuel
 
 jobs:
@@ -26,7 +29,7 @@ jobs:
         env:
           CLEVER_SECRET: ${{ secrets.CLEVER_CLOUD_SECRET }}
           CLEVER_TOKEN: ${{ secrets.CLEVER_CLOUD_TOKEN }}
-          ID_APP: ${{ secrets.CLEVER_CLOUD_ID_APP }}
+          ID_APP: ${{ secrets.CLEVER_CLOUD_EXPORT_BACKUP_ID_APP }}
         run: |
           clever link "$ID_APP"
           clever deploy --force --same-commit-policy=rebuild
@@ -50,7 +53,7 @@ jobs:
         env:
           CLEVER_SECRET: ${{ secrets.CLEVER_CLOUD_SECRET }}
           CLEVER_TOKEN: ${{ secrets.CLEVER_CLOUD_TOKEN }}
-          ID_APP: ${{ secrets.CLEVER_CLOUD_ID_APP }}
+          ID_APP: ${{ secrets.CLEVER_CLOUD_EXPORT_BACKUP_ID_APP }}
         run: |
           clever link "$ID_APP"
           clever deploy --force --same-commit-policy=rebuild

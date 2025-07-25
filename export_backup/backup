@@ -56,7 +56,7 @@ usage() {
   echo "$0" >&2
   echo Error: "$@" >&2
   echo >&2
-  echo "Launch a backup of our databases and S3 buckets" >&2
+  echo "Launch an export of our databases backups and backup our S3 buckets" >&2
   echo "The following environment variables must be defined:" >&2
   echo >&2
   echo "PGP_KEYS: The public keys for which we must encrypt the backup" >&2

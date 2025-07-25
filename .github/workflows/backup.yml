@@ -3,12 +3,12 @@ permissions: {}
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # Tous les jours à 2h du matin UTC
-  workflow_dispatch:     # Permet de le lancer manuellement aussi
+    - cron: "0 2 * * *" # Tous les jours à 2h du matin UTC
+  workflow_dispatch: # Permet de le lancer manuellement aussi
 
 jobs:
-  backup:
-    name: Backup
+  export_backup:
+    name: Export Backups
     environment: PROD
     runs-on: ubuntu-latest
     steps:
@@ -16,7 +16,7 @@ jobs:
         shell: bash
         run: npm install -g clever-tools
 
-      - name: Déclencher la sauvegarde
+      - name: Déclencher l'export des sauvegardes
         env:
           CLEVER_SECRET: ${{ secrets.CLEVER_CLOUD_SECRET }}
           CLEVER_TOKEN: ${{ secrets.CLEVER_CLOUD_TOKEN }}
