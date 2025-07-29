@@ -1,15 +1,15 @@
-name: export_backup CI
+name: make_backup CI
 permissions:
   contents: read
 on:
   push:
     branches: [main]
     paths:
-      - "export_backup/**"
+      - "make_backup/**"
   pull_request:
     branches: [main]
     paths:
-      - "export_backup/**"
+      - "make_backup/**"
 
 jobs:
   ubuntu:
@@ -23,5 +23,5 @@ jobs:
           curl -s https://raw.githubusercontent.com/pgrange/bash_unit/master/install.sh | bash
       - name: Unit testing with bash_unit
         run: |
-          cd export_backup
+          cd make_backup
           FORCE_COLOR=true ../bash_unit tests/test*
