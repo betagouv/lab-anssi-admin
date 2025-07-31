@@ -1,4 +1,4 @@
-name: Backup
+name: Scheduled Export Backups
 permissions: {}
 
 on:
