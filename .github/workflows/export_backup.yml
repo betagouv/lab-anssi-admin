@@ -9,7 +9,7 @@ on:
 jobs:
   export_backup:
     name: Export Backups
-    environment: PROD
+    environment: SCHEDULED_PROD
     runs-on: ubuntu-latest
     steps:
       - name: Installer la CLI Clever Cloud
