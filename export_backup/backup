@@ -41,6 +41,11 @@ declare -F s3_push > /dev/null || s3_push() {
   s3cmd --quiet --host-bucket="${S3_HOST_BUCKET}" put - "${destination}"
 }
 
+declare -F curl_get > /dev/null || curl_get() {
+  local destination="$1"
+  curl "${GRIST_URL}/api/docs/${GRIST_ID_DOCUMENT}/download" -o "${destination}"
+}
+
 backup_and_push() {
   local db_name="$1"
   local addon_id="$2"
@@ -56,7 +61,7 @@ usage() {
   echo "$0" >&2
   echo Error: "$@" >&2
   echo >&2
-  echo "Launch an export of our databases backups and backup our S3 buckets" >&2
+  echo "Launch an export of our databases backups, Grist document backups and backup our S3 buckets" >&2
   echo "The following environment variables must be defined:" >&2
   echo >&2
   echo "PGP_KEYS: The public keys for which we must encrypt the backup" >&2
@@ -83,6 +88,9 @@ usage() {
   echo >&2
   echo "CLEVER_SECRET: authentication information to download add-on backup" >&2
   echo "CLEVER_TOKEN: authentication information to download add-on backup" >&2
+  echo >&2
+  echo "GRIST_ID_DOCUMENT: Grist document id to download" >&2
+  echo "GRIST_URL: Grist URL" >&2
 
   exit 1
 }
@@ -118,6 +126,8 @@ validate_source_buckets_configuration() {
 [[ -z "${RCLONE_CONFIG_TARGET_SECRET_ACCESS_KEY+x}" ]] && usafe "You must define RCLONE_CONFIG_TARGET_ACCESS_KEY_ID"
 [[ -z "${RCLONE_CONFIG_TARGET_ENDPOINT+x}"          ]] && usafe "You must define RCLONE_CONFIG_TARGET_ENDPOINT"
 [[ -z "${S3_BUCKETS_TO_BACKUP+x}"                   ]] && usafe "You must define S3_BUCKETS_TO_BACKUP"
+[[ -z "${GRIST_ID_DOCUMENT+x}"                   ]] && usafe "You must define GRIST_ID_DOCUMENT"
+[[ -z "${GRIST_URL+x}"                   ]] && usafe "You must define GRIST_URL"
 # shellcheck disable=SC2086
 validate_source_buckets_configuration $S3_BUCKETS_TO_BACKUP
 
@@ -137,6 +147,14 @@ for var in $(set | grep '^ADDON_ID_'); do
   addon_value="$(echo "$var" | cut -d'=' -f2)"
   backup_and_push "$addon_name" "$addon_value"
 done
+
+backup_grist() {
+  echo "Grist document Backup"
+  curl_get "$tmp_dir/db.grist"
+  < "$tmp_dir/db.grist" gpg_encrypt |  s3_push "s3://${BACKUP_BUCKET_NAME}/backups/grist/${GRIST_ID_DOCUMENT}.pgp"
+}
+
+backup_grist
 
 rm -rf "$tmp_dir"
 
@@ -164,3 +182,4 @@ do
   # shellcheck disable=SC2046
   rclone_sync_s3 "$bucket" $(bucket_configuration "$bucket")
 done
+
