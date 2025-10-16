@@ -43,7 +43,7 @@ declare -F s3_push > /dev/null || s3_push() {
 
 declare -F curl_get > /dev/null || curl_get() {
   local destination="$1"
-  curl "${GRIST_URL}/api/docs/${GRIST_ID_DOCUMENT}/download" -o "${destination}"
+  curl "${GRIST_URL}/api/docs/${GRIST_ID_DOCUMENT}/download" -o "${destination}" -H "Authorization: Bearer ${GRIST_API_KEY}"
 }
 
 backup_and_push() {
@@ -91,6 +91,7 @@ usage() {
   echo >&2
   echo "GRIST_ID_DOCUMENT: Grist document id to download" >&2
   echo "GRIST_URL: Grist URL" >&2
+  echo "GRIST_API_KEY: Grist API key" >&2
 
   exit 1
 }
