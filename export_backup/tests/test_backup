@@ -11,6 +11,7 @@ setup() {
   fake pg_restore echo ok
 
   fake s3_push _push
+  fake curl_get _curl_get
   fake rclone echo
 }
 
@@ -35,6 +36,8 @@ setup_backup_script() {
   PGP_KEYS="$(cat fixtures/toto.public_key.asc fixtures/titi.public_key.asc)" ; export PGP_KEYS
   export ADDON_ID_my_database=addon_bdc1e3d1-190e-4a5e-a694-e8da77c1a92e
   export ADDON_ID_my_other_database=addon_bdc2e4d2-190e-4a6e-a695-e9da79c2a93e
+  export GRIST_ID_DOCUMENT=mon_grist
+  export GRIST_URL=mon_grist
   export BACKUP_BUCKET_NAME=fake_bucket
 }
 
@@ -43,8 +46,19 @@ teardown() {
   rm -rf "${GPG_HOME_DIR}"
 }
 
-test_can_backup_several_databases() {
 
+test_can_backup_grist() {
+  assert ../backup
+
+  local s3_destination="${S3_FAKE_DIR}/${FAKE_S3_URL}grist_"
+
+  local expected_archive_path="${s3_destination}mon_grist.pgp"
+  import_private_key toto
+  assert "test -f ${s3_destination}mon_grist.pgp" "$(ls "${s3_destination}mon_grist.pgp")"
+  assert "gpg --homedir ${GPG_HOME_DIR} --decrypt ${expected_archive_path}"
+}
+
+test_can_backup_several_databases() {
   assert ../backup
 
   local s3_destination="${S3_FAKE_DIR}/${FAKE_S3_URL}"
@@ -94,6 +108,11 @@ _push() {
   cat > "${S3_FAKE_DIR}/$(echo "${FAKE_PARAMS[0]}" | tr / _)"
 } 
 export -f _push
+
+_curl_get() {
+  echo "base grist téléchargée"  > "${FAKE_PARAMS[0]}"
+}
+export -f _curl_get
 
 import_private_key() {
   local admin="$1"
