@@ -102,11 +102,11 @@ usage() {
   exit 1
 }
 
-[[ -z "${PGP_KEYS+x}"              ]] && usage "You must define PGP_KEYS"
-[[ -z "${BACKUP_BUCKET_NAME+x}"    ]] && usage "You must define BACKUP_BUCKET_NAME"
-[[ -z "${S3_HOST_BUCKET+x}"        ]] && usage "You must define S3_HOST_BUCKET"
-[[ -z "${CLEVER_SECRET+x}"         ]] && usage "You must define CLEVER_SECRET"
-[[ -z "${CLEVER_TOKEN+x}"          ]] && usage "You must define CLEVER_TOKEN"
+[[ -z "${PGP_KEYS+x}"           ]] && usage "You must define PGP_KEYS"
+[[ -z "${BACKUP_BUCKET_NAME+x}" ]] && usage "You must define BACKUP_BUCKET_NAME"
+[[ -z "${S3_HOST_BUCKET+x}"     ]] && usage "You must define S3_HOST_BUCKET"
+[[ -z "${CLEVER_SECRET+x}"      ]] && usage "You must define CLEVER_SECRET"
+[[ -z "${CLEVER_TOKEN+x}"       ]] && usage "You must define CLEVER_TOKEN"
 
 if ! set | grep '^ADDON_ID_' >/dev/null
 then
