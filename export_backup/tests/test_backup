@@ -38,6 +38,7 @@ setup_backup_script() {
   export ADDON_ID_my_other_database=addon_bdc2e4d2-190e-4a6e-a695-e9da79c2a93e
   export GRIST_ID_DOCUMENT=mon_grist
   export GRIST_URL=mon_grist
+  export GRIST_API_KEY=mandatory
   export BACKUP_BUCKET_NAME=fake_bucket
 }
 
