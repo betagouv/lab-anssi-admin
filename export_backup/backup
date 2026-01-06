@@ -117,20 +117,20 @@ validate_source_buckets_configuration() {
   done
 }
 
-[[ -z "${PGP_KEYS+x}"              ]] && usage "You must define PGP_KEYS"
-[[ -z "${BACKUP_BUCKET_NAME+x}"    ]] && usage "You must define BACKUP_BUCKET_NAME"
-[[ -z "${S3_HOST_BUCKET+x}"        ]] && usage "You must define S3_HOST_BUCKET"
-[[ -z "${CLEVER_SECRET+x}"         ]] && usage "You must define CLEVER_SECRET"
-[[ -z "${CLEVER_TOKEN+x}"          ]] && usage "You must define CLEVER_TOKEN"
+[[ -z "${PGP_KEYS+x}"           ]] && usage "You must define PGP_KEYS"
+[[ -z "${BACKUP_BUCKET_NAME+x}" ]] && usage "You must define BACKUP_BUCKET_NAME"
+[[ -z "${S3_HOST_BUCKET+x}"     ]] && usage "You must define S3_HOST_BUCKET"
+[[ -z "${CLEVER_SECRET+x}"      ]] && usage "You must define CLEVER_SECRET"
+[[ -z "${CLEVER_TOKEN+x}"       ]] && usage "You must define CLEVER_TOKEN"
 
 [[ -z "${RCLONE_CONFIG_TARGET_ACCESS_KEY_ID+x}"     ]] && usage "You must define RCLONE_CONFIG_TARGET_ACCESS_KEY_ID"
 [[ -z "${RCLONE_CONFIG_TARGET_SECRET_ACCESS_KEY+x}" ]] && usage "You must define RCLONE_CONFIG_TARGET_ACCESS_KEY_ID"
 [[ -z "${RCLONE_CONFIG_TARGET_ENDPOINT+x}"          ]] && usage "You must define RCLONE_CONFIG_TARGET_ENDPOINT"
 [[ -z "${S3_BUCKETS_TO_BACKUP+x}"                   ]] && usage "You must define S3_BUCKETS_TO_BACKUP"
 
-[[ -z "${GRIST_ID_DOCUMENT+x}"                   ]] && usage "You must define GRIST_ID_DOCUMENT"
-[[ -z "${GRIST_URL+x}"                   ]] && usage "You must define GRIST_URL"
-[[ -z "${GRIST_API_KEY+x}"                   ]] && usage "You must define GRIST_API_KEY"
+[[ -z "${GRIST_ID_DOCUMENT+x}" ]] && usage "You must define GRIST_ID_DOCUMENT"
+[[ -z "${GRIST_URL+x}"         ]] && usage "You must define GRIST_URL"
+[[ -z "${GRIST_API_KEY+x}"     ]] && usage "You must define GRIST_API_KEY"
 # shellcheck disable=SC2086
 validate_source_buckets_configuration $S3_BUCKETS_TO_BACKUP
 
