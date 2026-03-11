@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+declare -F openssl_connect > /dev/null || openssl_connect() {
+  local endpoint="${1}:443"
+  openssl s_client -connect "$endpoint" </dev/null 2>/dev/null
+}
+
+get_certificate_validity_for_domain() {
+  openssl_connect "$1" \
+    | openssl x509 -inform pem -text \
+    | jc --x509-cert \
+    | jq -r '.[0].tbs_certificate.validity | [.not_before, .not_after] | map(strftime("%d/%m/%Y")) | "\(.[0]) -> \(.[1])"'
+}
+
+get_certificate_validity_for_domains() {
+  for d in $1; do
+    echo -en "$d "
+    get_certificate_validity_for_domain "$d"
+  done
+}

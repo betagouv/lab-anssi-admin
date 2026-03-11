@@ -1,0 +1,31 @@
+#!/usr/bin/env bash_unit
+
+setup() {
+  fake openssl_connect cat ./fixtures/monservicesecurise.cyber.gouv.fr.pem
+}
+
+test_can_get_certificate_validity_for_a_domain() {
+  source ../get_validity
+
+  result=$(get_certificate_validity_for_domain 'foo.com')
+  assert_equals "$result" "26/02/2026 -> 12/09/2026"
+}
+
+test_can_get_certificate_validity_for_several_domains() {
+  source ../get_validity
+
+  result=$(get_certificate_validity_for_domains 'foo.com bar.com baz.com')
+  read -r -d '' expected <<__EOF__
+foo.com 26/02/2026 -> 12/09/2026
+bar.com 26/02/2026 -> 12/09/2026
+baz.com 26/02/2026 -> 12/09/2026
+__EOF__
+
+  assert_equals "$result" "$expected"
+}
+
+test_can_get_the_list_of_certificates_validity_for_each_domain_for_each_service() {
+  assert ../check
+}
+
+# vim: syntax=sh
