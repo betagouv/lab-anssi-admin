@@ -5,6 +5,7 @@ setup() {
 
   S3_FAKE_DIR="$(mktemp -d)" ; export S3_FAKE_DIR
   FAKE_S3_URL=s3:__${BACKUP_BUCKET_NAME}_backups_
+  TMP_DIR="$(mktemp -d)" ; export TMP_DIR
 
   fake download cat fixtures/my_database.dump
   # We fake pg_restore because of issues with pg versions between CI and local dev
@@ -57,6 +58,12 @@ test_can_backup_grist() {
   import_private_key toto
   assert "test -f ${s3_destination}mon_grist.pgp" "$(ls "${s3_destination}mon_grist.pgp")"
   assert "gpg --homedir ${GPG_HOME_DIR} --decrypt ${expected_archive_path}"
+}
+
+test_clean_grist_files_after_backup() {
+  assert ../backup
+
+  assert_fail "stat $TMP_DIR"
 }
 
 test_can_backup_several_databases() {
