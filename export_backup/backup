@@ -122,6 +122,7 @@ backup_grist() {
   echo "Grist document Backup"
   curl_get "$tmp_dir/db.grist"
   < "$tmp_dir/db.grist" gpg_encrypt |  s3_push "s3://${BACKUP_BUCKET_NAME}/backups/grist/${GRIST_ID_DOCUMENT}.pgp"
+  rm "$tmp_dir/db.grist"
 }
 
 rclone_sync_s3() {

@@ -66,7 +66,7 @@ test_clean_grist_files_after_backup() {
   STDOUT="$(mktemp -d)/out"
   ../backup > "$STDOUT" 2>/dev/null
 
-  assert "grep --quiet 'suppression -rf $TMP_DIR' $STDOUT"
+  assert "grep --quiet 'suppression $TMP_DIR/db.grist' $STDOUT"
 }
 
 test_can_backup_several_databases() {
@@ -86,6 +86,15 @@ test_clean_each_backup_after_push() {
 
   assert "grep --quiet 'suppression $TMP_DIR/my_database' $STDOUT"
   assert "grep --quiet 'suppression $TMP_DIR/my_other_database' $STDOUT"
+}
+
+test_remove_temporary_folder_after_all_backups() {
+  fake rm _rm
+
+  STDOUT="$(mktemp -d)/out"
+  ../backup > "$STDOUT" 2>/dev/null
+
+  assert "grep --quiet 'suppression -rf $TMP_DIR' $STDOUT"
 }
 
 test_toto_can_decypher_backup() {
