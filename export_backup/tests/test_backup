@@ -150,6 +150,7 @@ import_private_key() {
 }
 
 _rm() {
+  # shellcheck disable=SC2145
   echo "suppression ${FAKE_PARAMS[@]}"
 }
 export -f _rm
