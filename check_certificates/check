@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 
+# shellcheck disable=SC1091
 source "$(dirname "$0")/get_validity"
 
+# shellcheck disable=SC2034
 read -r -d '' DSC_domains <<__EOF__
 demainspecialiste.cyber.gouv.fr
 www.demainspecialistecyber.fr
 demainspecialistecyber.fr
 __EOF__
 
+# shellcheck disable=SC2034
 read -r -d '' MAC_domains <<__EOF__
 www.monaidecyber.ssi.gouv.fr
 monaidecyber.ssi.gouv.fr
@@ -15,14 +18,17 @@ www.monaide.cyber.gouv.fr
 monaide.cyber.gouv.fr
 __EOF__
 
+# shellcheck disable=SC2034
 read -r -d '' MQC_domains <<__EOF__
 mesquestions.cyber.gouv.fr
 __EOF__
 
+# shellcheck disable=SC2034
 read -r -d '' MSC_domains <<__EOF__
 messervices.cyber.gouv.fr
 __EOF__
 
+# shellcheck disable=SC2034
 read -r -d '' MSS_domains <<__EOF__
 www.monservicesecurise.ssi.gouv.fr
 monservicesecurise.ssi.gouv.fr
@@ -30,6 +36,7 @@ www.monservicesecurise.cyber.gouv.fr
 monservicesecurise.cyber.gouv.fr
 __EOF__
 
+# shellcheck disable=SC2034
 read -r -d '' NIS2_domains <<__EOF__
 www.monespacenis2.cyber.gouv.fr
 monespacenis2.cyber.gouv.fr
@@ -37,7 +44,7 @@ __EOF__
 
 result=$(mktemp)
 for ds in "DSC_domains" "MAC_domains" "MSC_domains" "MSS_domains" "NIS2_domains"; do
-  echo ${ds:0:-8} >> $result
-  get_certificate_validity_for_domains "${!ds}" >> $result
+  echo ${ds:0:-8} >> "$result"
+  get_certificate_validity_for_domains "${!ds}" >> "$result"
 done
-column -t $result
+column -t "$result"
