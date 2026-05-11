@@ -61,9 +61,12 @@ test_can_backup_grist() {
 }
 
 test_clean_grist_files_after_backup() {
-  assert ../backup
+  fake rm _rm
 
-  assert_fail "stat $TMP_DIR"
+  STDOUT="$(mktemp -d)/out"
+  ../backup > "$STDOUT" 2>/dev/null
+
+  assert "grep --quiet 'suppression -rf $TMP_DIR' $STDOUT"
 }
 
 test_can_backup_several_databases() {
@@ -126,5 +129,10 @@ import_private_key() {
   local admin="$1"
   gpg --homedir "${GPG_HOME_DIR}" --import "fixtures/${admin}.private_key.asc" 2>/dev/null
 }
+
+_rm() {
+  echo "suppression ${FAKE_PARAMS[@]}"
+}
+export -f _rm
 
 # vim: syntax=sh
