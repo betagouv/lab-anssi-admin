@@ -78,6 +78,16 @@ test_can_backup_several_databases() {
   assert "test -f ${s3_destination}my_other_database.pgp"
 }
 
+test_clean_each_backup_after_push() {
+  fake rm _rm
+
+  STDOUT="$(mktemp -d)/out"
+  ../backup > "$STDOUT" 2>/dev/null
+
+  assert "grep --quiet 'suppression $TMP_DIR/my_database' $STDOUT"
+  assert "grep --quiet 'suppression $TMP_DIR/my_other_database' $STDOUT"
+}
+
 test_toto_can_decypher_backup() {
   assert ../backup
 

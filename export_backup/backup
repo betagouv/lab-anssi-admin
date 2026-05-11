@@ -54,6 +54,7 @@ backup_and_push() {
   download "$addon_id" > "$tmp_dir/$db_name"
   check_dump_is_healthy "$tmp_dir/$db_name"
   < "$tmp_dir/$db_name" gpg_encrypt | s3_push "s3://${BACKUP_BUCKET_NAME}/backups/${db_name}.pgp"
+  rm "$tmp_dir/$db_name"
   echo "Done" >&2
 }
 
