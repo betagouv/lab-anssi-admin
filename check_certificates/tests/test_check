@@ -5,6 +5,7 @@ setup() {
 }
 
 test_can_get_certificate_validity_for_a_domain() {
+  # shellcheck disable=SC1091
   source ../get_validity
 
   result=$(get_certificate_validity_for_domain 'foo.com')
@@ -12,6 +13,7 @@ test_can_get_certificate_validity_for_a_domain() {
 }
 
 test_can_get_certificate_validity_for_several_domains() {
+  # shellcheck disable=SC1091
   source ../get_validity
 
   result=$(get_certificate_validity_for_domains 'foo.com bar.com baz.com')
