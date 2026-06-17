@@ -26,6 +26,8 @@ setup_backup_script() {
   export RCLONE_CONFIG_TARGET_ACCESS_KEY_ID=mandatory
   export RCLONE_CONFIG_TARGET_SECRET_ACCESS_KEY=mandatory
   export RCLONE_CONFIG_TARGET_ENDPOINT=mandatory
+  export RCLONE_CONFIG_TARGET_REGION=mandatory
+  export RCLONE_CONFIG_TARGET_PROVIDER=mandatory
   export S3_BUCKETS_TO_BACKUP=some-bucket
   export S3_some_bucket_endpoint=mandatory
   export S3_some_bucket_access_key_id=mandatory
