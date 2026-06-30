@@ -56,6 +56,4 @@ jobs:
           ID_APP: ${{ secrets.CLEVER_CLOUD_MAKE_BACKUP_ID_APP }}
         run: |
           clever link "$ID_APP"
-          clever env set CLEVER_SECRET "$CLEVER_SECRET"
-          clever env set CLEVER_TOKEN "$CLEVER_TOKEN"
           clever deploy --force --same-commit-policy=rebuild
