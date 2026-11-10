@@ -34,6 +34,8 @@ anssi-lab-utilitaires/.nvmrc                           24                  24   
 lab-anssi-pala/.nvmrc                                  24.22.2             24     24.22.2 	 ✅
 ```
 
+**analyze-nvmrc** updates its local repository. It could be long.
+If your repositories are already updated, use `--no-update` to avoid theses updates.
 
 
 ## Create patch

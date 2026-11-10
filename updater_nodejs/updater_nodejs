@@ -16,6 +16,7 @@ set -Eeuo pipefail
 VERBOSE=false
 GET_LATEST_RELEASE=false
 ANALYZE_NVMRC=false
+ANALYZE_NVMRC_NO_UPDATE=false
 CREATE_PATCH=false
 ANALYZE_PATCH=false
 DRY_RUN=false
@@ -105,6 +106,11 @@ while (($#)); do
 			done
 			((${#ANALYZE_DIRECTORIES})) || ANALYZE_DIRECTORIES="."
 			;;
+		# help: disable update repository -- only for --analyze-nvmrc
+		--no-update)
+			ANALYZE_NVMRC_NO_UPDATE=true
+			shift
+			;;
 		# help: create patch for specific repositories:
 		--create-patch)
 			CREATE_PATCH=true; shift
@@ -137,7 +143,7 @@ while (($#)); do
 			done
 			((${#ANALYZE_DIRECTORIES})) || ANALYZE_DIRECTORIES="."
 			;;
-		# help: dry run - only for --patch
+		# help: dry run -- only for --patch
 		--dry-run)
 			DRY_RUN=true
 			shift
@@ -174,6 +180,7 @@ if ${VERBOSE}; then
 	echo "VERBOSE=${VERBOSE}"
 	echo "GET_LATEST_RELEASE=${GET_LATEST_RELEASE}"
 	echo "ANALYZE_NVMRC=${ANALYZE_NVMRC}"
+	echo "ANALYZE_NVMRC_NO_UPDATE=${ANALYZE_NVMRC_NO_UPDATE}"
 	echo "ANALYZE_PATCH=${ANALYZE_PATCH}"
 	echo "ANALYZE_DIRECTORIES=${ANALYZE_DIRECTORIES}"
 	echo "MAJOR_RELEASES=${MAJOR_RELEASES}"
@@ -202,12 +209,15 @@ if ${ANALYZE_NVMRC}; then
 
 		repository="${file%/*}"
 		main_branch=$(get_main_branch_name "${repository}")
-		printf "(update repository...)"
-		git -C "${repository}" switch "${main_branch##*/}"	> /dev/null 2>&1
-		git -C "${repository}" fetch origin			> /dev/null 2>&1
-		git -C "${repository}" reset --hard "${main_branch}"	> /dev/null 2>&1
-		git -C "${repository}" pull				> /dev/null 2>&1
-		printf "\r"
+
+		if [ ${ANALYZE_NVMRC_NO_UPDATE} == false ]; then
+			printf "(update repository...)"
+			git -C "${repository}" switch "${main_branch##*/}"	> /dev/null 2>&1
+			git -C "${repository}" fetch origin			> /dev/null 2>&1
+			git -C "${repository}" reset --hard "${main_branch}"	> /dev/null 2>&1
+			git -C "${repository}" pull				> /dev/null 2>&1
+			printf "\r"
+		fi
 
 		version="$(get_version_from_nvmrc "${file}")"
 		major="$(get_major_release "${version}")"
