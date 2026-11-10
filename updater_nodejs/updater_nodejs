@@ -1,0 +1,390 @@
+#!/bin/bash
+
+set -Eeuo pipefail
+
+# trap byebye EXIT
+# function byebye() {
+# 	printf ""
+# }
+
+
+
+# ===================================================
+# =====               VARIABLES                 =====
+# ===================================================
+
+VERBOSE=false
+GET_LATEST_RELEASE=false
+ANALYZE_NVMRC=false
+CREATE_PATCH=false
+ANALYZE_PATCH=false
+DRY_RUN=false
+PUSH=false
+PR=false
+
+NPMJS_REGISTRY_URL="https://registry.npmjs.org/node"
+MAJOR_RELEASES="22 24 26"
+BRANCH_BUMP="fix/node_bump"
+ANALYZE_DIRECTORIES=
+
+
+
+# ===================================================
+# =====              FUNCTIONS                  =====
+# ===================================================
+
+#-------------------------------------------
+# get the first line of nvmrc (such as head)
+#-------------------------------------------
+function get_version_from_nvmrc() {
+	mapfile -t lines < "${1}"
+	printf "%s\n" "${lines[0]}"
+}
+#------------------------------------------------
+# strip major release from string: xxxx.yyyy.zzzz
+#------------------------------------------------
+function get_major_release() {
+	printf "${1%%.*}"
+}
+#--------------------------------------------
+# fetch latest version from npmjs repository
+#--------------------------------------------
+function get_latest_version_from_major_release() {
+	major_release="$1"
+	curl -fsSL "${NPMJS_REGISTRY_URL}" \
+		| jq \
+			--arg version ${major_release} \
+			-r '.versions | keys[] | select(test("^" + $version + "\\.[0-9]+\\.[0-9]+$"))' \
+		| sort -V \
+		| tail -n1
+}
+#-------------------------------------------
+# fetch latest version from nmpjs repository
+#-------------------------------------------
+function get_latest_version() {
+	curl -fsSL "${NPMJS_REGISTRY_URL}/latest" | jq -r '.version'
+}
+#--------------------------------------
+# get main branch from a git repository
+#--------------------------------------
+function get_main_branch_name() {
+	repository="$1"
+	git -C "${repository}" symbolic-ref refs/remotes/origin/HEAD --short
+}
+#-----------------------------------
+# get all nvmrc and return filename
+#-----------------------------------
+function find_nvmrc() {
+	find ${*} -maxdepth 2 -name ".nvmrc"
+}
+#-------------
+# temp func
+#------------
+function sep() {
+	printf "%5.s" {1..19} | tr ' ' '-'
+}
+
+
+
+# ===================================================
+# =====              ARGUMENTS                  =====
+# ===================================================
+
+while (($#)); do
+	case "$1" in
+		# help: Get all latest release:
+		--get-latest-release)
+			GET_LATEST_RELEASE=true
+			shift
+			;;
+		# help: Find nvmrc, analyze them and get latest release from its major release:
+		--analyze-nvmrc)
+			ANALYZE_NVMRC=true; shift
+			while (($#)) && [[ "$1" != -* ]]; do
+				ANALYZE_DIRECTORIES+="$1 "; shift
+			done
+			((${#ANALYZE_DIRECTORIES})) || ANALYZE_DIRECTORIES="."
+			;;
+		# help: create patch for specific repositories:
+		--create-patch)
+			CREATE_PATCH=true; shift
+			while (($#)) && [[ "$1" != -* ]]; do
+				ANALYZE_DIRECTORIES+="$1 "; shift
+			done
+			((${#ANALYZE_DIRECTORIES})) || ANALYZE_DIRECTORIES="."
+			;;
+		# help: analyze repository and check the fix branch:
+		--analyze-patch)
+			ANALYZE_PATCH=true; shift
+			while (($#)) && [[ "$1" != -* ]]; do
+				ANALYZE_DIRECTORIES+="$1 "; shift
+			done
+			((${#ANALYZE_DIRECTORIES})) || ANALYZE_DIRECTORIES="."
+			;;
+		# help: push all commit from BRANCH_BUMP
+		--push)
+			PUSH=true; shift
+			while (($#)) && [[ "$1" != -* ]]; do
+				ANALYZE_DIRECTORIES+="$1 "; shift
+			done
+			((${#ANALYZE_DIRECTORIES})) || ANALYZE_DIRECTORIES="."
+			;;
+		# help: create pull request
+		--pr)
+			PR=true; shift
+			while (($#)) && [[ "$1" != -* ]]; do
+				ANALYZE_DIRECTORIES+="$1 "; shift
+			done
+			((${#ANALYZE_DIRECTORIES})) || ANALYZE_DIRECTORIES="."
+			;;
+		# help: dry run - only for --patch
+		--dry-run)
+			DRY_RUN=true
+			shift
+			;;
+		# help: More blahblah:
+		-v|--verbose)
+			VERBOSE=true
+			shift
+			;;
+		# help: Myself :-D
+		-h|--help)
+			# quick & dirty usage generator
+			printf "Usage: $0 <options>\n"
+			grep '#.*[h]elp:.*' -A1 --no-group-separator "$0" \
+				| tr -d '#)\t' \
+				| sed -e "s/^\s//g" \
+				| sed -e "s/help:/*/"
+			exit 253
+			;;
+		-*)
+			echo "Unknown parameter: $1"
+			exit 254
+			;;
+	esac
+done
+
+
+
+# ===================================================
+# =====                  MAIN                   =====
+# ===================================================
+
+if ${VERBOSE}; then
+	echo "VERBOSE=${VERBOSE}"
+	echo "GET_LATEST_RELEASE=${GET_LATEST_RELEASE}"
+	echo "ANALYZE_NVMRC=${ANALYZE_NVMRC}"
+	echo "ANALYZE_PATCH=${ANALYZE_PATCH}"
+	echo "ANALYZE_DIRECTORIES=${ANALYZE_DIRECTORIES}"
+	echo "MAJOR_RELEASES=${MAJOR_RELEASES}"
+fi
+
+
+
+#-----------------------------------------
+# get all releases
+#-----------------------------------------
+if ${GET_LATEST_RELEASE}; then
+	for major_release in ${MAJOR_RELEASES}; do
+		get_latest_version_from_major_release "${major_release}"
+	done
+	get_latest_version
+fi
+
+
+
+#-----------------------------------------
+# analyze nvmrc and check latest release
+#-----------------------------------------
+if ${ANALYZE_NVMRC}; then
+	printf "%-60s %-10s  %10s  %10s\n" "filename" "current" "major" "latest"
+	find_nvmrc ${ANALYZE_DIRECTORIES} | while read file; do
+
+		repository="${file%/*}"
+		main_branch=$(get_main_branch_name "${repository}")
+		printf "(update repository...)"
+		git -C "${repository}" switch "${main_branch##*/}"	> /dev/null 2>&1
+		git -C "${repository}" fetch origin			> /dev/null 2>&1
+		git -C "${repository}" reset --hard "${main_branch}"	> /dev/null 2>&1
+		git -C "${repository}" pull				> /dev/null 2>&1
+		printf "\r"
+
+		version="$(get_version_from_nvmrc "${file}")"
+		major="$(get_major_release "${version}")"
+		release=$(get_latest_version_from_major_release "${major}")
+
+		[[ "$version" == "$release" ]] && icon="✅" || icon="❌"
+
+		printf "%-60s %-10s  %10s  %10s \t %s\n" \
+			"${file}" \
+			"${version}" \
+			"${major}" \
+			"${release}" \
+			"${icon}"
+	done
+fi
+
+
+
+#-----------------------------------------
+# analyze if a patch has been implemented
+#-----------------------------------------
+if ${ANALYZE_PATCH}; then
+	find_nvmrc ${ANALYZE_DIRECTORIES} | while read file; do
+
+		repository="${file%/*}"
+		main_branch=$(get_main_branch_name "${repository}")
+		version="$(get_version_from_nvmrc "${file}")"
+		major="$(get_major_release "${version}")"
+		release=$(get_latest_version_from_major_release "${major}")
+
+		printf "\n%s\n" "$(sep)"
+		printf "%-60s\n" "${repository}"
+		printf "%s\n" "$(sep)"
+		printf "main branch name : %s\n" "${main_branch}"
+		printf "fix branch name  : %s\n" "${BRANCH_BUMP}"
+		printf "current version  : %s\n" "${version}"
+		printf "latest version   : %s\n" "${release}"
+		printf "%s\n" "$(sep)"
+
+		git -C "${repository}" diff "${BRANCH_BUMP}" .nvmrc 2> /dev/null || echo "no diff with ${BRANCH_BUMP}"
+		printf "%s\n" "$(sep)"
+	done
+fi
+
+
+
+#-----------------------------------------
+# create a patch in specific local branch
+#-----------------------------------------
+if ${CREATE_PATCH}; then
+
+	echo "Create patch for ${ANALYZE_DIRECTORIES}"
+	find_nvmrc ${ANALYZE_DIRECTORIES} | while read file; do
+
+		printf "%s\nentering %s\n%s\n" "$(sep)" "$(dirname ${file})" "$(sep)"
+		repository="${file%/*}"
+		main_branch=$(get_main_branch_name "${repository}")
+
+		# prepare the stage
+		git -C "${repository}" switch "${main_branch##*/}"    # going back to main branch
+		git -C "${repository}" fetch origin
+		git -C "${repository}" reset --hard "${main_branch}"
+		git -C "${repository}" pull
+		git -C "${repository}" worktree prune
+
+		# all of them depends on branch
+		version="$(get_version_from_nvmrc "${file}")"
+		major="$(get_major_release "${version}")"
+		release=$(get_latest_version_from_major_release "${major}")
+
+		printf "%s\nchecking %s\n%s\n" "$(sep)" "${repository}" "$(sep)"
+		printf "main_branch            : %s\n" "${main_branch}"
+		printf "nodejs current version : %s\n" "${version}"
+		printf "nodejs major version   : %s\n" "${major}"
+		printf "nodejs latest release  : %s\n" "${release}"
+		printf "%s\n" "$(sep)"
+
+		if [ ${version} == ${release} ]; then
+			echo "✅ already patched"
+			continue  # skip
+		else
+			echo "❌ need a patch..."
+		fi
+
+		if ${DRY_RUN}; then
+			printf "⚠️  dry-run, no patch created ⚠️\n"
+			continue  # skip
+		fi
+
+		# TODO: using worktree instead ?
+
+		# remove BRANCH_BUMP
+		if $(git -C "${repository}" show-ref --verify --quiet "refs/heads/${BRANCH_BUMP}"); then
+			echo "branch ${BRANCH_BUMP} already exists: reset"
+			git -C "${repository}" branch -D "${BRANCH_BUMP}"
+		fi
+
+		# create new repository
+		git -C "${repository}" switch -c "${BRANCH_BUMP}" "${main_branch}"
+
+		# patch
+		echo "${release}" > ${repository}/.nvmrc
+
+		# staging & commit
+		git -C "${repository}" add .nvmrc
+		git -C "${repository}" commit -m "${BRANCH_BUMP}"
+
+		# visual check
+		git -C "${repository}" diff ..${main_branch}
+
+		# going back to main branch
+		git -C "${repository}" switch "${main_branch##*/}"    # going back to main branch
+
+	done
+	echo "(done)"
+fi
+
+
+
+#-----------------------------------
+# push patch from local to remote
+#-----------------------------------
+if ${PUSH}; then
+
+	for file in $(find_nvmrc ${ANALYZE_DIRECTORIES}); do
+
+		repository="${file%/*}"
+		main_branch=$(get_main_branch_name "${repository}")
+
+		printf "%s\n %s \n%s\n" "$(sep)" "${repository}" "$(sep)"
+
+		git -C "${repository}" diff ..${BRANCH_BUMP} 2> /dev/null || echo "no patch"
+
+		read -p "push this commit ? [y/N] " tmp
+		case "${tmp:0:1}" in
+		    [YyOo]) 
+			echo "(push)"
+			git -C "${repository}" push origin "${BRANCH_BUMP}"
+			;;
+		    *)      
+			echo "(skipped)" 
+			;;
+		esac
+	done
+fi
+
+
+
+#-----------------------------------------
+# create pull request (via gh-cli)
+#-----------------------------------------
+if ${PR}; then
+	for file in $(find_nvmrc ${ANALYZE_DIRECTORIES}); do
+
+		repository="${file%/*}"
+		main_branch=$(get_main_branch_name "${repository}")
+		repository_path="$(git -C "${repository}" remote get-url origin)"
+
+		printf "%s\n %s \n%s\n" "$(sep)" "${repository} => ${repository_path}" "$(sep)"
+		gh -R ${repository_path} pr list
+
+		read -p "create pull request for ${BRANCH_BUMP} ? [y/N] " tmp
+		case "${tmp:0:1}" in
+		    [YyOo]) 
+			echo "(pull-request in progress...)"
+			gh -R ${repository_path} \
+				pr create \
+				--base "${main_branch##*/}" \
+				--head "${BRANCH_BUMP}"     \
+				--title "${BRANCH_BUMP}"    \
+				--body "${BRANCH_BUMP}" || echo "already exists"
+			gh -R ${repository_path} pr list
+			;;
+		    *)      
+			echo "(skipped)" 
+			;;
+		esac
+
+	done
+fi
