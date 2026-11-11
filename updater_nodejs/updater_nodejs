@@ -24,6 +24,7 @@ PUSH=false
 PR=false
 
 NPMJS_REGISTRY_URL="https://registry.npmjs.org/node"
+GITHUB_REGISTRY_URL="repos/nodejs/node/tags"
 MAJOR_RELEASES="22 24 26"
 BRANCH_BUMP="fix/node_bump"
 ANALYZE_DIRECTORIES=
@@ -50,20 +51,46 @@ function get_major_release() {
 #--------------------------------------------
 # fetch latest version from npmjs repository
 #--------------------------------------------
-function get_latest_version_from_major_release() {
+function get_latest_version_from_major_release_npmjs() {
 	major_release="$1"
 	curl -fsSL "${NPMJS_REGISTRY_URL}" \
 		| jq \
-			--arg version ${major_release} \
-			-r '.versions | keys[] | select(test("^" + $version + "\\.[0-9]+\\.[0-9]+$"))' \
+			--arg version "${major_release}" \
+			-r \
+			'.versions | keys[] | select(test("^" + $version + "\\.[0-9]+\\.[0-9]+$"))' \
 		| sort -V \
-		| tail -n1
+		| tail -n1 || echo "error"
 }
+function get_latest_version_from_major_release_github() {
+	major_release="$1"
+	gh api "${GITHUB_REGISTRY_URL}?per_page=1000" \
+		| jq \
+			--arg version "${major_release}" \
+			-r \
+			'.[].name | select(test("^v" + $version + "\\.[0-9]+\\.[0-9]+$"))' \
+		| sort -V \
+		| tail -n1 \
+		| sed -e "s/^v//" || echo "error"
+}
+function get_latest_version_from_major_release() {
+	major_release="$1"
+	release=$(get_latest_version_from_major_release_github "$major_release")
+	# fallback
+	if [ "${release}" == "error" ]; then
+		release=$(get_latest_version_from_major_release_npmjs "$major_release")
+	fi
+	printf "%s" "${release}"
+}
+
+
 #-------------------------------------------
 # fetch latest version from nmpjs repository
 #-------------------------------------------
-function get_latest_version() {
-	curl -fsSL "${NPMJS_REGISTRY_URL}/latest" | jq -r '.version'
+function get_latest_version_npmjs() {
+	curl -fsSL "${NPMJS_REGISTRY_URL}/latest" | jq -r '.version' || echo "error"
+}
+function get_latest_version_github() {
+	gh api "${GITHUB_REGISTRY_URL}?per_page=10" | jq -r '.[].name ' | sort -V | tail -n1 | sed -e "s/^v//" || echo "error"
 }
 #--------------------------------------
 # get main branch from a git repository
@@ -193,9 +220,13 @@ fi
 #-----------------------------------------
 if ${GET_LATEST_RELEASE}; then
 	for major_release in ${MAJOR_RELEASES}; do
-		get_latest_version_from_major_release "${major_release}"
+		release_npmjs=$(get_latest_version_from_major_release_npmjs "${major_release}")
+		release_github=$(get_latest_version_from_major_release_github "${major_release}")
+		printf "%s ➡️  npmjs(%s)\t➡️  github(%s)\n" "$major_release" "$release_npmjs" "$release_github"
 	done
-	get_latest_version
+	release_npmjs=$(get_latest_version_npmjs)
+	release_github=$(get_latest_version_github)
+	printf "%s ➡️  npmjs(%s)\t➡️  github(%s)\n" "++" "$release_npmjs" "$release_github"
 fi
 
 
