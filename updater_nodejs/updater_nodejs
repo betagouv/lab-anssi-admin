@@ -288,7 +288,7 @@ if ${ANALYZE_PATCH}; then
 		printf "latest version   : %s\n" "${release}"
 		printf "%s\n" "$(sep)"
 
-		git -C "${repository}" diff "${BRANCH_BUMP}" .nvmrc 2> /dev/null || echo "no diff with ${BRANCH_BUMP}"
+		git -C "${repository}" diff .."${BRANCH_BUMP}" .nvmrc 2> /dev/null || echo "no diff with ${BRANCH_BUMP}"
 		printf "%s\n" "$(sep)"
 	done
 fi
@@ -349,6 +349,9 @@ if ${CREATE_PATCH}; then
 		# create new repository
 		git -C "${repository}" switch -c "${BRANCH_BUMP}" "${main_branch}"
 
+		# check if branch isn't ready on remote
+		git -C "${repository}" pull origin "${BRANCH_BUMP}" --rebase || echo "no rebase to perform"
+
 		# patch
 		echo "${release}" > ${repository}/.nvmrc
 
@@ -357,7 +360,7 @@ if ${CREATE_PATCH}; then
 		git -C "${repository}" commit -m "${BRANCH_BUMP}"
 
 		# visual check
-		git -C "${repository}" diff ..${main_branch}
+		git -C "${repository}" diff ${main_branch}..
 
 		# going back to main branch
 		git -C "${repository}" switch "${main_branch##*/}"    # going back to main branch
@@ -386,6 +389,9 @@ if ${PUSH}; then
 		case "${tmp:0:1}" in
 		    [YyOo]) 
 			echo "(push)"
+			# check if branch isn't ready on remote
+			git -C "${repository}" pull origin "${BRANCH_BUMP}" --rebase || echo "no rebase to perform"
+			# push it !
 			git -C "${repository}" push origin "${BRANCH_BUMP}"
 			;;
 		    *)      
